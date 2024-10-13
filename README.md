@@ -15,10 +15,10 @@ Dieses Projekt stellt ein web-basiertes Overlay bereit, das den Rang, LP und die
 ## Vorschau
 
 ### Rang-Anzeige
-![Rang-Anzeige](images/1.png)
+![Rang-Anzeige](images/2.png)
 
 ### Detailansicht des letzten Spiels
-![Detailansicht des letzten Spiels](images/2.png)
+![Detailansicht des letzten Spiels](images/1.png)
 
 ## Installation und Verwendung
 
