@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoL Rank Display</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: rgba(0, 0, 0, 0); /* Transparent for OBS */
+            color: white;
+            text-align: center;
+        }
+
+        #rank-section img {
+            display: block;
+            margin: 0 auto;
+        }
+
+        .view {
+            display: none;
+        }
+
+        .active {
+            display: block;
+        }
+
+        #view1 #matches {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .match {
+            position: relative;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .win {
+            border: 3px solid green;
+            border-radius: 50%;
+        }
+
+        .lose {
+            border: 3px solid red;
+            border-radius: 50%;
+        }
+
+        img {
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+        }
+
+        .kda {
+            position: absolute;
+            bottom: -20px;
+            font-size: 12px;
+            color: white;
+        }
+
+        .last-game {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .last-game img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+        }
+
+        .win-frame {
+            border: 5px solid green;
+        }
+
+        .lose-frame {
+            border: 5px solid red;
+        }
+
+        .stats {
+            text-align: left;
+        }
+
+        .items {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .item {
+            width: 40px;
+            height: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div id="view1" class="view active">
+        <div id="rank-section">
+            <img id="rank-icon" src="" alt="Rank Icon" style="width:200px; height: auto;">
+            <h1 id="rank">Loading...</h1>
+        </div>
+        <div id="matches"></div>
+    </div>
+
+    <div id="view2" class="view">
+        <div class="last-game">
+            <img id="champion-icon" src="" alt="Champion Icon">
+            <div class="stats">
+                <h2 id="champion-name">Champion</h2>
+                <p id="kda-detailed">KDA: 0/0/0</p>
+                <p id="gold-earned">Gold Earned: 0</p>
+                <p id="total-damage">Total Damage: 0</p>
+                <p id="minions-killed">Minions Killed (CS): 0</p>
+            </div>
+        </div>
+        <div class="items" id="item-section"></div>
+    </div>
+
+    <script>
+        async function fetchSummonerData() {
+            try {
+                // Get username and tagline from URL parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                let riotIdName = urlParams.get('riotIdName') || 'KyuubiDDragon'; // Default value if not provided
+                let tagline = urlParams.get('tagline') || '1337'; // Default value if not provided
+
+                // Encode URI components to handle spaces and special characters
+                riotIdName = encodeURIComponent(riotIdName);
+                tagline = encodeURIComponent(tagline);
+
+                // Fetch data using the encoded parameters
+                const response = await fetch(`api.php?riotIdName=${riotIdName}&tagline=${tagline}`);
+
+                const data = await response.json();
+
+                // Update Rank Icon and Text
+                document.getElementById('rank-icon').src = data.rankIcon;
+                document.getElementById('rank').innerText = `${data.rank} - ${data.lp} LP`;
+
+                // Load last 5 matches
+                const matchContainer = document.getElementById('matches');
+                matchContainer.innerHTML = ''; // Clear previous matches
+                data.matches.forEach(match => {
+                    const matchDiv = document.createElement('div');
+                    matchDiv.classList.add('match', match.win ? 'win' : 'lose');
+
+                    const championImg = document.createElement('img');
+                    championImg.src = match.championIcon;
+                    championImg.alt = match.championName;
+
+                    const kdaDiv = document.createElement('div');
+                    kdaDiv.classList.add('kda');
+                    kdaDiv.innerText = match.kda;
+
+                    matchDiv.appendChild(championImg);
+                    matchDiv.appendChild(kdaDiv);
+                    matchContainer.appendChild(matchDiv);
+                });
+
+                // Load detailed last match
+                loadLastGameDetailed(data.lastMatch);
+            } catch (error) {
+                console.error("Error fetching data: ", error);
+            }
+        }
+
+        function loadLastGameDetailed(lastMatch) {
+            const championIcon = document.getElementById('champion-icon');
+            championIcon.src = lastMatch.championIcon;
+            championIcon.classList.add(lastMatch.win ? 'win-frame' : 'lose-frame');
+
+            document.getElementById('champion-name').innerText = lastMatch.championName;
+            document.getElementById('kda-detailed').innerText = `KDA: ${lastMatch.kda}`;
+            document.getElementById('gold-earned').innerText = `Gold Earned: ${lastMatch.goldEarned}`;
+            document.getElementById('total-damage').innerText = `Total Damage: ${lastMatch.totalDamage}`;
+            document.getElementById('minions-killed').innerText = `Minions Killed (CS): ${lastMatch.minionsKilled}`;
+
+            // Display items
+            const itemSection = document.getElementById('item-section');
+            itemSection.innerHTML = ''; // Clear previous items
+            lastMatch.items.forEach(itemUrl => {
+                const itemImg = document.createElement('img');
+                itemImg.src = itemUrl;
+                itemImg.classList.add('item');
+                itemSection.appendChild(itemImg);
+            });
+        }
+
+        // Switch views every 30 seconds and reload data
+        async function toggleView() {
+            const view1 = document.getElementById('view1');
+            const view2 = document.getElementById('view2');
+
+            view1.classList.toggle('active');
+            view2.classList.toggle('active');
+
+            // Reload data with each toggle
+            await fetchSummonerData();
+        }
+
+        // Initial data load
+        fetchSummonerData();
+
+        // Toggle view every 30 seconds and reload data
+        setInterval(toggleView, 30000);
+    </script>
+</body>
+</html>
