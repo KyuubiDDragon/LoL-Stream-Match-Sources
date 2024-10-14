@@ -39,7 +39,6 @@ if (!$accountData || !isset($accountData['puuid'])) {
     exit;
 }
 
-
 $puuid = $accountData['puuid'];
 
 // Summoner Daten abrufen
@@ -76,8 +75,8 @@ if (!$soloQueueRank) {
     exit;
 }
 
-// Match-Daten abrufen
-$matchesUrl = "https://{$region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{$puuid}/ids?start=0&count=5";
+// Match-Daten abrufen (nur die letzten 5 Ranked-Spiele)
+$matchesUrl = "https://{$region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{$puuid}/ids?start=0&count=20";
 $matchIds = fetchRiotApi($matchesUrl);
 
 // Überprüfe, ob Match-IDs vorhanden sind
@@ -86,40 +85,18 @@ if (!$matchIds || !is_array($matchIds) || empty($matchIds)) {
     exit;
 }
 
-// Letztes Match abrufen und detaillierte Daten anzeigen
-$lastMatchUrl = "https://{$region}.api.riotgames.com/lol/match/v5/matches/{$matchIds[0]}";
-$lastMatch = fetchRiotApi($lastMatchUrl);
+// Nur Ranked-Spiele berücksichtigen
+$rankedQueueIds = [420, 440]; // Ranked Solo/Duo und Flex
 
-// Überprüfe, ob das letzte Match vorhanden ist
-if (!$lastMatch || !isset($lastMatch['info'])) {
-    echo json_encode(['error' => 'Failed to retrieve last match data or match info is missing.']);
-    exit;
-}
-
-// Teilnehmerdaten für den Spieler extrahieren
-$lastMatchParticipant = null;
-foreach ($lastMatch['info']['participants'] as $participant) {
-    if ($participant['puuid'] === $puuid) {
-        $lastMatchParticipant = $participant;
-        break;
-    }
-}
-
-// Überprüfe, ob der Teilnehmer im letzten Match gefunden wurde
-if (!$lastMatchParticipant) {
-    echo json_encode(['error' => 'Failed to find participant in the last match.']);
-    exit;
-}
-
-// Letzte 5 Matches
+// Letzte 5 Ranked Matches
 $matches = [];
 foreach ($matchIds as $matchId) {
     $matchUrl = "https://{$region}.api.riotgames.com/lol/match/v5/matches/{$matchId}";
     $matchData = fetchRiotApi($matchUrl);
 
-    // Überprüfe, ob Matchdaten korrekt abgerufen wurden
-    if (!isset($matchData['info'])) {
-        continue;
+    // Überprüfe, ob das Spiel ein Ranked-Spiel ist
+    if (!isset($matchData['info']) || !in_array($matchData['info']['queueId'], $rankedQueueIds)) {
+        continue; // Ignoriere Nicht-Ranked-Spiele
     }
 
     $participant = null;
@@ -138,6 +115,44 @@ foreach ($matchIds as $matchId) {
             'kda' => "{$participant['kills']}/{$participant['deaths']}/{$participant['assists']}"
         ];
     }
+
+    // Beende die Schleife, sobald wir 5 Ranked-Spiele gefunden haben
+    if (count($matches) >= 5) {
+        break;
+    }
+}
+
+// Letztes Ranked-Match abrufen und prüfen, ob es ein Ranked-Match ist
+$lastMatch = null;
+foreach ($matchIds as $matchId) {
+    $lastMatchUrl = "https://{$region}.api.riotgames.com/lol/match/v5/matches/{$matchId}";
+    $matchData = fetchRiotApi($lastMatchUrl);
+
+    // Überprüfe, ob das Spiel ein Ranked-Spiel ist
+    if (isset($matchData['info']) && in_array($matchData['info']['queueId'], $rankedQueueIds)) {
+        $lastMatch = $matchData;
+        break; // Beende die Suche nach dem letzten Ranked-Match
+    }
+}
+
+// Überprüfe, ob das letzte Match ein Ranked-Spiel war
+if (!$lastMatch || !isset($lastMatch['info'])) {
+    echo json_encode(['error' => 'No ranked matches found in recent match history.']);
+    exit;
+}
+
+// Teilnehmerdaten für den Spieler extrahieren
+$lastMatchParticipant = null;
+foreach ($lastMatch['info']['participants'] as $participant) {
+    if ($participant['puuid'] === $puuid) {
+        $lastMatchParticipant = $participant;
+        break;
+    }
+}
+
+if (!$lastMatchParticipant) {
+    echo json_encode(['error' => 'Failed to find participant in the last ranked match.']);
+    exit;
 }
 
 // Detaillierte letzte Match-Daten mit Items
