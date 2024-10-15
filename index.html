@@ -151,6 +151,7 @@
                 matchContainer.innerHTML = ''; // Clear previous matches
                 data.matches.forEach(match => {
                     const matchDiv = document.createElement('div');
+                    championIcon.classList.remove('win-frame', 'lose-frame');
                     matchDiv.classList.add('match', match.win ? 'win' : 'lose');
 
                     const championImg = document.createElement('img');
